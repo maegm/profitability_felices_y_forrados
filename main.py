@@ -118,8 +118,6 @@ def numero_cuotas(df, inversion_inicial):
 
 def main():
     delta = 2
-    inversion = 1e6
-    fecha = '2011-07-29'
 
     df1 = read_data_afp_modelo()
     df2 = read_data_fyf()
@@ -140,8 +138,9 @@ def main():
     cols_gb = ['A', 'B', 'C', 'D', 'E', 'MONTO_FyF']
     for col in cols_gb:
         df['CREC_' + col] = df[col].pct_change()
+        df['CREC_' + col].fillna(0, inplace=True)
 
-    df.to_csv('./data/procesada.csv', sep=';', decimal=',', index=False)
+    df.to_csv('./data/procesada.csv', sep=';', index=False)
 
 
 if __name__ == '__main__':
