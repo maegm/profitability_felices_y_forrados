@@ -78,6 +78,44 @@ def read_data_afp_modelo():
     return df
 
 
+def numero_cuotas(df, inversion_inicial):
+    df_in = df.copy()
+
+    # Variables a calcular
+    cuota = {'A': [], 'B': [], 'C': [], 'D': [], 'E': []}
+    monto = [inversion_inicial]
+
+    # Parametros
+    fondos = ['A', 'B', 'C', 'D', 'E']
+    labels_rec = ['FONDO_COMPRA_A', 'FONDO_COMPRA_B', 'FONDO_COMPRA_C', 'FONDO_COMPRA_D', 'FONDO_COMPRA_E']
+    periodos = list(range(1, len(df_in)))
+    valor_cuota = df_in[fondos].to_dict()
+    rec = df_in[labels_rec].to_dict()
+
+    # Cuota inicial
+    cuota['A'].append(0)
+    cuota['B'].append(0)
+    cuota['C'].append(0)
+    cuota['D'].append(0)
+    cuota['E'].append(inversion_inicial / valor_cuota['E'][0])
+
+    # Cuota i-esima y monto i-esimo
+    for periodo in periodos:
+        factor_t = {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0}
+        monto_t = 0
+        for fondo in ['A', 'B', 'C', 'D', 'E']:
+            factor_t[fondo] = rec['FONDO_COMPRA_' + fondo][periodo] / valor_cuota[fondo][periodo]
+            monto_t = cuota[fondo][periodo-1] * valor_cuota[fondo][periodo] + monto_t
+
+        for fondo in ['A', 'B', 'C', 'D', 'E']:
+            cuota[fondo].append(factor_t[fondo] * monto_t)
+        monto.append(monto_t)
+
+    df_out = pd.DataFrame(cuota)
+    df_out['MONTO'] = monto
+    return df_out
+
+
 def main():
     delta = 2
     inversion = 1e6
@@ -85,7 +123,6 @@ def main():
 
     df1 = read_data_afp_modelo()
     df2 = read_data_fyf()
-
     df = df1.merge(df2, how='left', left_on='Dia', right_on='Fecha inicio')
 
     for letra in ['A', 'B', 'C', 'D', 'E']:
@@ -95,11 +132,14 @@ def main():
     df.drop(columns=['Fecha inicio'], inplace=True)
     df.reset_index(drop=True, inplace=True)
 
-    for letra in ['A', 'B', 'C', 'D', 'E']:
-        df['FONDO_VENTA_' + letra] = df['FONDO_COMPRA_' + letra].shift(1)
+    # Número de cuotas en un periodo
+    cols_cuotas = ['CUOTA_A', 'CUOTA_B', 'CUOTA_C', 'CUOTA_D', 'CUOTA_E']
+    df[cols_cuotas + ['MONTO_FyF']] = numero_cuotas(df, 1000000)
 
-    for letra in ['A', 'B', 'C', 'D', 'E']:
-        df['CUOTA_REF_' + letra] = inversion / df.loc[df['Dia'] == fecha, letra].values[0]
+    # Crecimiento
+    cols_gb = ['A', 'B', 'C', 'D', 'E', 'MONTO_FyF']
+    for col in cols_gb:
+        df['CREC_' + col] = df[col].pct_change()
 
     df.to_csv('./data/procesada.csv', sep=';', decimal=',', index=False)
 
