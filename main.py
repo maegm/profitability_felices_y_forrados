@@ -105,7 +105,7 @@ def numero_cuotas(df, inversion_inicial):
         monto_t = 0
         for fondo in ['A', 'B', 'C', 'D', 'E']:
             factor_t[fondo] = rec['FONDO_COMPRA_' + fondo][periodo] / valor_cuota[fondo][periodo]
-            monto_t = cuota[fondo][periodo-1] * valor_cuota[fondo][periodo] + monto_t
+            monto_t = cuota[fondo][periodo - 1] * valor_cuota[fondo][periodo] + monto_t
 
         for fondo in ['A', 'B', 'C', 'D', 'E']:
             cuota[fondo].append(factor_t[fondo] * monto_t)
@@ -114,6 +114,30 @@ def numero_cuotas(df, inversion_inicial):
     df_out = pd.DataFrame(cuota)
     df_out['MONTO'] = monto
     return df_out
+
+
+def simulacion_tiempo(df1, df2):
+    df1a = df1[['Dia', 'A', 'B', 'C', 'D', 'E']].copy()
+    df2a = df2[['Dia', 'CUOTA_A', 'CUOTA_B', 'CUOTA_C', 'CUOTA_D', 'CUOTA_E']].copy()
+
+    df = df1a.merge(df2a, how='left', on=['Dia'])
+    for fondo in ['A', 'B', 'C', 'D', 'E']:
+        df['CUOTA_' + fondo].fillna(method='ffill', inplace=True)
+    df.drop(df[df['CUOTA_A'].isna()].index, inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    df['FyF'] = df['CUOTA_A'] * df['A'] + df['CUOTA_B'] * df['B'] + df['CUOTA_C'] * df['C'] + df['CUOTA_D'] * \
+                df['D'] + df['CUOTA_E'] * df['E']
+
+    df['FONDO_A'] = 1e6 / 26215.39 * df['A']
+    df['FONDO_B'] = 1e6 / 23045.35 * df['B']
+    df['FONDO_C'] = 1e6 / 26253.92 * df['C']
+    df['FONDO_D'] = 1e6 / 20196.84 * df['D']
+    df['FONDO_E'] = 1e6 / 26353.34 * df['E']
+
+    df.drop(columns=['A', 'B', 'C', 'D', 'E'], inplace=True)
+
+    return df
 
 
 def main():
@@ -141,8 +165,8 @@ def main():
         df['CREC_' + col].fillna(0, inplace=True)
 
     df.to_csv('./data/procesada.csv', sep=';', index=False)
+    simulacion_tiempo(df1, df).to_csv('./data/evolucion_temporal.csv', sep=';', index=False)
 
 
 if __name__ == '__main__':
-
     main()
